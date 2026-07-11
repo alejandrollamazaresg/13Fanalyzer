@@ -7,8 +7,9 @@ Open: http://localhost:8000
 Fetches live 13F data from SEC EDGAR on each startup (cached for 24h).
 No API keys, no accounts, no deployment needed.
 
-If 13f.db is missing but 13f.sql.gz exists, the database is automatically
-rebuilt from the compressed dump on first launch (~30-60s one-time step).
+If 13f.db is missing but 13f.sql.zip (or 13f.sql.gz) exists, the database
+is automatically rebuilt from the compressed dump on first launch (~30-60s
+one-time step).
 """
 
 import http.server
@@ -3028,18 +3029,41 @@ def _db_available():
     return DB_PATH.exists()
 
 
-DB_DUMP_PATH = Path(__file__).parent / "13f.sql.gz"
+DB_DUMP_GZ  = Path(__file__).parent / "13f.sql.gz"
+DB_DUMP_ZIP = Path(__file__).parent / "13f.sql.zip"
 
 
 def _rebuild_db_from_dump():
-    """If 13f.db is missing but 13f.sql.gz exists, rebuild the database."""
-    if DB_PATH.exists() or not DB_DUMP_PATH.exists():
+    """If 13f.db is missing but a compressed dump exists, rebuild the database."""
+    if DB_PATH.exists():
         return
-    print(f"\n  13f.db not found — rebuilding from {DB_DUMP_PATH.name}...")
-    t0 = time.time()
+
+    # Try .zip first (browsers don't auto-decompress), then .gz
+    if DB_DUMP_ZIP.exists():
+        dump_path = DB_DUMP_ZIP
+        import zipfile
+        print(f"\n  13f.db not found — rebuilding from {dump_path.name}...")
+        t0 = time.time()
+        try:
+            with zipfile.ZipFile(str(dump_path), "r") as zf:
+                sql = zf.read(zf.namelist()[0]).decode("utf-8")
+        except Exception as e:
+            print(f"  ERROR reading dump: {e}")
+            return
+    elif DB_DUMP_GZ.exists():
+        dump_path = DB_DUMP_GZ
+        print(f"\n  13f.db not found — rebuilding from {dump_path.name}...")
+        t0 = time.time()
+        try:
+            with gzip.open(str(dump_path), "rt", encoding="utf-8") as f:
+                sql = f.read()
+        except Exception as e:
+            print(f"  ERROR reading dump: {e}")
+            return
+    else:
+        return
+
     try:
-        with gzip.open(str(DB_DUMP_PATH), "rt", encoding="utf-8") as f:
-            sql = f.read()
         conn = sqlite3.connect(str(DB_PATH))
         conn.execute("PRAGMA journal_mode=OFF")
         conn.execute("PRAGMA synchronous=OFF")
