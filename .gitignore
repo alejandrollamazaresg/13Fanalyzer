@@ -1,0 +1,11 @@
+# Database (rebuilt automatically from 13f.sql.gz on first run)
+13f.db
+
+# Cache
+cache/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+13f.sql

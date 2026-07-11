@@ -1,0 +1,16 @@
+<!-- pages/search.html — injected into #view-search by js/core.js -->
+<div class="search-panel">
+  <div class="search-head">
+    <div class="detail-name">Stock Search</div>
+    <div class="detail-firm-line">Search a ticker or company name to see which investors hold it.</div>
+    <div class="search-box-wrap">
+      <input id="stock-search-input" class="search-input" placeholder="Try AAPL, NVDA, Amazon, Visa..." onkeydown="if(event.key==='Enter') runStockSearch()">
+      <button class="search-btn" onclick="runStockSearch()">Search</button>
+    </div>
+    <div class="search-hint">Matches are based on the loaded 13F holdings from all investors. Search supports ticker, company name, and partial text.</div>
+    <div class="suggestion-row" id="stock-suggestions"></div>
+  </div>
+  <div class="search-body" id="stock-search-results">
+    <div class="empty"><p>Enter a stock ticker or company name to find holders across the investor list.</p></div>
+  </div>
+</div>

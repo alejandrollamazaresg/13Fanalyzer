@@ -1,0 +1,15 @@
+<!-- pages/investors.html — injected into #view-investors by js/core.js -->
+<div class="sec-head">
+  <span class="sec-label">Select an investor</span>
+  <button class="refresh-btn" onclick="hardRefresh()">↺ Refresh data</button>
+</div>
+<div class="inv-search-wrap">
+  <svg class="inv-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+  <input id="inv-search-input" class="inv-search-input" placeholder="Search investors by name, firm, or strategy…" oninput="filterInvestors(this.value)">
+  <button class="inv-search-clear" id="inv-search-clear" onclick="clearInvestorSearch()">✕</button>
+</div>
+<div class="inv-search-count" id="inv-search-count"></div>
+<div class="inv-grid" id="inv-grid"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="empty"><p>Select an investor above to explore their 13F holdings</p></div>
+</div>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>13F Tracker — Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<nav>
+  <div class="logo">13F <em>Tracker</em></div>
+  <div class="nav-pills">
+    <button class="nav-pill active" onclick="switchView('investors')">Investors</button>
+    <button class="nav-pill" onclick="switchView('search')">Stock Search</button>
+    <button class="nav-pill" onclick="switchView('market')">Market View</button>
+    <button class="nav-pill" onclick="switchView('compare')">Compare</button>
+    <button class="nav-pill" onclick="switchView('history')">History</button>
+    <button class="nav-pill" onclick="switchView('lab')">Portfolio Lab</button>
+  </div>
+  <div class="nav-right">
+    <div class="live-dot" id="live-dot" style="background:#f59e0b"></div>
+    <div class="nav-meta" id="nav-meta">Loading SEC data…</div>
+  </div>
+</nav>
+
+<main id="main-content">
+  <!-- LOADING SCREEN -->
+  <div class="loading-screen" id="loading-screen">
+    <div class="loading-spinner"></div>
+    <div>
+      <div class="loading-title">Fetching live 13F data</div>
+      <div class="loading-sub">Pulling latest filings from SEC EDGAR for each investor…</div>
+    </div>
+    <div class="loading-progress"><div class="loading-bar" id="loading-bar"></div></div>
+    <div class="loading-items" id="loading-items"></div>
+  </div>
+
+  <!-- MAIN APP (hidden until data loads) -->
+  <div id="app" style="display:none">
+    <div class="hero">
+      <div class="hero-text">
+        <h1>Institutional<br>Holdings Intelligence</h1>
+        <p>Live 13F data from SEC EDGAR. Auto-fetched on every run, cached 24h.</p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-n" id="stat-investors">—</div><div class="stat-l">Investors</div></div>
+        <div class="stat"><div class="stat-n" id="stat-aum">—</div><div class="stat-l">Total AUM</div></div>
+        <div class="stat"><div class="stat-n" id="stat-q">—</div><div class="stat-l">Latest Filing</div></div>
+      </div>
+    </div>
+
+    <div id="view-investors"></div>
+    <div id="view-search" style="display:none"></div>
+    <div id="view-market" style="display:none"></div>
+    <div id="view-compare" style="display:none"></div>
+    <div id="view-history" style="display:none"></div>
+    <div id="view-lab" style="display:none"></div>
+  </div>
+</main>
+
+<footer>Live data from SEC EDGAR 13F-HR filings · Cached 24h locally · For informational purposes only</footer>
+
+<script src="js/core.js"></script>
+<script src="js/page-investors.js"></script>
+<script src="js/page-search.js"></script>
+<script src="js/page-market.js"></script>
+<script src="js/page-compare.js"></script>
+<script src="js/page-history.js"></script>
+<script src="js/page-lab.js"></script>
+<script src="js/lab-tax-compare.js"></script>
+</body>
+</html>
