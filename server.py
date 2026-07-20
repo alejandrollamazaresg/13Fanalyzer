@@ -3031,7 +3031,7 @@ def _db_available():
 
 
 DB_DUMP_GZ  = Path(__file__).parent / "13f.db.gz"
-DB_DUMP_ZIP = Path(__file__).parent / "13f.sql.zip"
+
 
 
 def _rebuild_db_from_dump():
