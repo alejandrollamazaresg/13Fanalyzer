@@ -25,6 +25,7 @@ import gzip
 import io
 from pathlib import Path
 from datetime import date, datetime, timedelta
+import shutil
 
 
 import math
@@ -3029,53 +3030,29 @@ def _db_available():
     return DB_PATH.exists()
 
 
-DB_DUMP_GZ  = Path(__file__).parent / "13f.sql.gz"
+DB_DUMP_GZ  = Path(__file__).parent / "13f.db.gz"
 DB_DUMP_ZIP = Path(__file__).parent / "13f.sql.zip"
 
 
 def _rebuild_db_from_dump():
-    """If 13f.db is missing but a compressed dump exists, rebuild the database."""
+    """If 13f.db is missing but 13f.db.gz exists, stream-decompress it to disk.
+    Streaming keeps peak memory near ~1 MB regardless of DB size (no OOM)."""
     if DB_PATH.exists():
         return
-
-    # Try .zip first (browsers don't auto-decompress), then .gz
-    if DB_DUMP_ZIP.exists():
-        dump_path = DB_DUMP_ZIP
-        import zipfile
-        print(f"\n  13f.db not found — rebuilding from {dump_path.name}...")
+    if DB_DUMP_GZ.exists():
+        print(f"\n  13f.db not found — decompressing {DB_DUMP_GZ.name}...")
         t0 = time.time()
         try:
-            with zipfile.ZipFile(str(dump_path), "r") as zf:
-                sql = zf.read(zf.namelist()[0]).decode("utf-8")
+            with gzip.open(str(DB_DUMP_GZ), "rb") as src, open(DB_PATH, "wb") as dst:
+                shutil.copyfileobj(src, dst, length=1024 * 1024)  # 1 MB chunks
+            size_mb = DB_PATH.stat().st_size / 1_000_000
+            print(f"  Restored 13f.db ({size_mb:.0f} MB) in {time.time()-t0:.1f}s\n")
         except Exception as e:
-            print(f"  ERROR reading dump: {e}")
-            return
-    elif DB_DUMP_GZ.exists():
-        dump_path = DB_DUMP_GZ
-        print(f"\n  13f.db not found — rebuilding from {dump_path.name}...")
-        t0 = time.time()
-        try:
-            with gzip.open(str(dump_path), "rt", encoding="utf-8") as f:
-                sql = f.read()
-        except Exception as e:
-            print(f"  ERROR reading dump: {e}")
-            return
+            print(f"  ERROR decompressing DB: {e}")
+            if DB_PATH.exists():
+                DB_PATH.unlink()   # don't leave a half-written DB
     else:
-        return
-
-    try:
-        conn = sqlite3.connect(str(DB_PATH))
-        conn.execute("PRAGMA journal_mode=OFF")
-        conn.execute("PRAGMA synchronous=OFF")
-        conn.executescript(sql)
-        conn.close()
-        elapsed = time.time() - t0
-        size_mb = DB_PATH.stat().st_size / 1_000_000
-        print(f"  Rebuilt 13f.db ({size_mb:.0f} MB) in {elapsed:.1f}s\n")
-    except Exception as e:
-        print(f"  ERROR rebuilding DB: {e}")
-        if DB_PATH.exists():
-            DB_PATH.unlink()
+        print("\n  13f.db not found (and no 13f.db.gz to rebuild from).")
 
 
 def _load_investor_from_db(investor):
