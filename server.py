@@ -26,6 +26,7 @@ import io
 from pathlib import Path
 from datetime import date, datetime, timedelta
 import shutil
+import resource
 
 
 import math
@@ -3006,9 +3007,9 @@ def enrich_performance(holdings, filing_date):
         return portfolio_perf
     return None
 
-import time
 
-def background_enrich_all(batch_size=5, pause_sec=3):
+
+def background_enrich_all(batch_size=3, pause_sec=5):
     """Slowly enrich all investors in small batches AFTER startup.
     Runs one investor at a time; pauses between batches so memory from
     each yfinance fetch is reclaimed before the next batch starts.
@@ -3998,8 +3999,7 @@ if __name__ == "__main__":
     _load_price_cache()
 
     print("\n  Step 2/2: Loading investor data...")
-    threading.Thread(target=load_all_investors, daemon=True).start()
-    threading.Thread(target=load_all_investors, daemon=True).start()
+    threading.Thread(target=load_all_investors, daemon=True).start()    
 
     def _delayed_enrich():
         # wait until the base data is loaded, then enrich slowly in the background
@@ -4025,6 +4025,6 @@ if __name__ == "__main__":
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n  Server stopped.")
-import resource
+
 mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024   # Linux: KB→MB
 print(f"  Peak memory after full load: {mem:.0f} MB", flush=True)
