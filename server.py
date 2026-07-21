@@ -3006,6 +3006,51 @@ def enrich_performance(holdings, filing_date):
         return portfolio_perf
     return None
 
+import time
+
+def background_enrich_all(batch_size=5, pause_sec=3):
+    """Slowly enrich all investors in small batches AFTER startup.
+    Runs one investor at a time; pauses between batches so memory from
+    each yfinance fetch is reclaimed before the next batch starts.
+    This is the safe alternative to enriching all 47 at once (which OOM'd)."""
+    if not _YF_AVAILABLE:
+        return
+    ids = list(_all_data.keys())
+    for i in range(0, len(ids), batch_size):
+        batch = ids[i:i + batch_size]
+        for inv_id in batch:
+            with _data_lock:
+                inv = _all_data.get(inv_id)
+            if not inv or inv.get("_enriched"):
+                continue
+            try:
+                perf = enrich_performance(inv.get("holdings", []), inv.get("filingDate", ""))
+                with _data_lock:
+                    inv["portfolioPerfSinceFiling"] = perf
+                    inv["_enriched"] = True
+                mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+                print(f"  [BG-ENRICH] {inv_id} done · mem {mem:.0f} MB", flush=True)
+            except Exception as e:
+                print(f"  [BG-ENRICH] {inv_id} failed: {e}", flush=True)
+            time.sleep(0.5)          # tiny gap between investors
+        time.sleep(pause_sec)        # bigger pause between batches → lets memory settle
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ─────────────────────────────────────────────
 #  SQLITE DATABASE LAYER
@@ -3954,6 +3999,15 @@ if __name__ == "__main__":
 
     print("\n  Step 2/2: Loading investor data...")
     threading.Thread(target=load_all_investors, daemon=True).start()
+    threading.Thread(target=load_all_investors, daemon=True).start()
+
+    def _delayed_enrich():
+        # wait until the base data is loaded, then enrich slowly in the background
+        while len(_all_data) < len(INVESTORS):
+            time.sleep(2)
+        time.sleep(5)   # let startup settle fully first
+        background_enrich_all(batch_size=5, pause_sec=3)
+    threading.Thread(target=_delayed_enrich, daemon=True).start()
 
     print(f"  Server running at http://localhost:{PORT}")
     print(f"  Press Ctrl+C to stop\n")
