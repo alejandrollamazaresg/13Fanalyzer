@@ -140,6 +140,33 @@ function selectInvestor(id) {
   currentInvestor = INVESTORS.find(i => i.id === id);
   document.querySelectorAll('.inv-card').forEach(c => c.classList.toggle('active', c.dataset.id===id));
   renderDetailPanel();
+  enrichInvestor(id);          // lazily fetch prices/fundamentals for this investor
+}
+
+// Fetch price + fundamentals for ONE investor on demand. The server does not
+// enrich at startup (that caused OOM), so we fill the price columns here when
+// an investor is actually opened. Silent on failure — the 13F table stays valid.
+async function enrichInvestor(id) {
+  const inv = INVESTORS.find(i => i.id === id);
+  if (!inv || inv._enriched) return;              // already done this session
+  try {
+    const res = await fetch('/api/enrich/' + encodeURIComponent(id));
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok) return;
+
+    inv.holdings = data.holdings;                  // now carry priceAtFiling/currentPrice/etc.
+    inv.portfolioPerfSinceFiling = data.portfolioPerfSinceFiling;
+    inv._enriched = true;
+
+    // If the user is still looking at this investor, re-render so the
+    // Current Price / Since Filing / Mkt Cap / P/E columns populate.
+    if (currentInvestor && currentInvestor.id === id) {
+      renderTab();
+    }
+  } catch (e) {
+    /* silent — un-enriched table is still correct */
+  }
 }
 
 

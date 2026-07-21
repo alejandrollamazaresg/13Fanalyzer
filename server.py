@@ -3725,6 +3725,57 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             payload = json.dumps(summary, default=str, allow_nan=False).encode()
             self._send_json(payload)
             return
+        # ── /api/enrich/<investor_id>  ────────────────────────────────────────
+        # Lazy, on-demand price + fundamentals enrichment for ONE investor.
+        # Enrichment (yfinance) is deliberately NOT run at startup because doing
+        # it for all 47 investors at once exhausted memory. Instead the frontend
+        # calls this when an investor is opened, so we only ever enrich the few
+        # investors actually viewed. Result is cached on the investor dict, so a
+        # second view is instant and costs no extra memory/network.
+        if self.path.startswith("/api/enrich/"):
+            inv_id = self.path[len("/api/enrich/"):].strip("/")
+            with _data_lock:
+                inv = _all_data.get(inv_id)
+            if not inv:
+                self._send_json(b'{"ok":false,"error":"Unknown investor"}', status=404)
+                return
+
+            # Already enriched this session? Serve the cached holdings straight back.
+            if inv.get("_enriched"):
+                out = clean_json_value({
+                    "ok": True,
+                    "id": inv_id,
+                    "portfolioPerfSinceFiling": inv.get("portfolioPerfSinceFiling"),
+                    "holdings": inv.get("holdings", []),
+                })
+                self._send_json(json.dumps(out, default=str, allow_nan=False).encode())
+                return
+
+            if not _YF_AVAILABLE:
+                self._send_json(b'{"ok":false,"error":"Price data unavailable on server"}', status=503)
+                return
+
+            try:
+                # enrich_performance mutates the holding dicts in place (adds
+                # priceAtFiling/currentPrice/perfSinceFiling/fundamentals) and
+                # returns the weighted portfolio performance.
+                holdings = inv.get("holdings", [])
+                perf = enrich_performance(holdings, inv.get("filingDate", ""))
+                with _data_lock:
+                    inv["portfolioPerfSinceFiling"] = perf
+                    inv["_enriched"] = True
+                out = {
+                    "ok": True,
+                    "id": inv_id,
+                    "portfolioPerfSinceFiling": perf,
+                    "holdings": holdings,
+                }
+                out = clean_json_value(out)
+                self._send_json(json.dumps(out, default=str, allow_nan=False).encode())
+            except Exception as e:
+                self._send_json(
+                    json.dumps({"ok": False, "error": str(e)}).encode(), status=500)
+            return
 
         # ── /api/history_all  ─────────────────────────────────────────────────
         # This endpoint returns ALL historical holdings for ALL investors.
