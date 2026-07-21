@@ -3107,13 +3107,15 @@ def _load_investor_from_db(investor):
         prev_holdings = load_holdings(filings[1]["id"])
         prev_date     = filings[1]["filing_date"]
 
-    # Full history for the frontend (all quarters, newest-first)
+    # Lightweight history metadata only (labels + AUM). Full per-quarter
+    # holdings are served on demand by /api/history_all, so we do NOT keep
+    # them in _all_data — that was the main thing exhausting 512 MB of RAM.
     history = []
-    for f in filings[1:]:  # skip the latest, include everything else
+    for f in filings[1:]:
         history.append({
-            "quarter":  f["quarter"],
-            "date":     f["filing_date"],
-            "holdings": load_holdings(f["id"]),
+            "quarter": f["quarter"],
+            "date":    f["filing_date"],
+            "aum":     f["aum_millions"],
         })
 
     conn.close()
@@ -3131,8 +3133,8 @@ def _load_investor_from_db(investor):
         "lastFilingDate":   latest["filing_date"],
         "previousFilingDate": prev_date or "",
         "cacheRunDate":     date.today().isoformat(),
-        "holdings":         holdings,
-        "holdingsPrev":     prev_holdings,
+        "holdings":         holdings[:60],       # cards show top 10; keep a buffer for search
+        "holdingsPrev":     prev_holdings[:60],
         "holdingsHistory":  history,
         "positionsAsOf":    latest["filing_date"],
         "portfolioPerfSinceFiling": None,   # enriched lazily below
@@ -3690,17 +3692,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         # ── /api/data  ────────────────────────────────────────────────────────
         if self.path == "/api/data":
             with _data_lock:
-                snapshot = copy.deepcopy(list(_all_data.values()))
+                # Build a lean summary WITHOUT deep-copying the whole dataset.
+                # Only the fields the investor grid actually renders are included;
+                # heavy per-quarter holdings are served by /api/history_all instead.
+                summary = []
+                for inv in _all_data.values():
+                    summary.append({
+                        "id":                inv.get("id"),
+                        "name":              inv.get("name"),
+                        "firm":              inv.get("firm"),
+                        "strategy":          inv.get("strategy"),
+                        "category":          inv.get("category"),
+                        "color":             inv.get("color"),
+                        "cik":               inv.get("cik"),
+                        "aum":               inv.get("aum"),
+                        "aumRaw":            inv.get("aumRaw"),
+                        "latestQ":           inv.get("latestQ"),
+                        "previousQ":         inv.get("previousQ"),
+                        "filingDate":        inv.get("filingDate"),
+                        "lastFilingDate":    inv.get("lastFilingDate"),
+                        "previousFilingDate": inv.get("previousFilingDate"),
+                        "positionsAsOf":     inv.get("positionsAsOf"),
+                        "portfolioPerfSinceFiling": inv.get("portfolioPerfSinceFiling"),
+                        "holdings":          inv.get("holdings", [])[:60],
+                        "holdingsPrev":      inv.get("holdingsPrev", [])[:60],
+                    })
 
-            # Temporary first-load size limit so browser does not choke on 30MB+ JSON
-            for inv in snapshot:
-                inv["holdings"] = inv.get("holdings", [])[:100]
-                inv["history"] = inv.get("history", [])[:8]
-                inv["changes"] = inv.get("changes", {})
-
-            snapshot = clean_json_value(snapshot)
-
-            payload = json.dumps(snapshot, default=str, allow_nan=False).encode()
+            summary = clean_json_value(summary)
+            payload = json.dumps(summary, default=str, allow_nan=False).encode()
             self._send_json(payload)
             return
 
