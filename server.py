@@ -3141,13 +3141,14 @@ def _load_investor_from_db(investor):
 
     # Enrich latest holdings with price performance (top 50)
     if _YF_AVAILABLE:
-        portfolio_perf = enrich_performance(holdings, latest["filing_date"])
-        # Price enrichment is skipped during bulk load to stay under the 512MB
-        # memory limit. portfolioPerfSinceFiling stays None; can be computed
-        # lazily per-investor later if needed.
+        # Price enrichment is DISABLED during bulk load. Calling enrich_performance
+        # here (via yfinance) for all 47 investors was consuming gigabytes of RAM
+        # and causing OOM. It stays None; it can be computed lazily per-investor.
         result["portfolioPerfSinceFiling"] = None
 
     return result
+
+    
 
 
 # ─────────────────────────────────────────────
@@ -3919,3 +3920,6 @@ if __name__ == "__main__":
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n  Server stopped.")
+import resource
+mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024   # Linux: KB→MB
+print(f"  Peak memory after full load: {mem:.0f} MB", flush=True)
