@@ -3107,9 +3107,8 @@ def _load_investor_from_db(investor):
         prev_holdings = load_holdings(filings[1]["id"])
         prev_date     = filings[1]["filing_date"]
 
-    # Lightweight history metadata only (labels + AUM). Full per-quarter
-    # holdings are served on demand by /api/history_all, so we do NOT keep
-    # them in _all_data — that was the main thing exhausting 512 MB of RAM.
+    # Lightweight history metadata only. Full per-quarter holdings are served
+    # on demand by /api/history_all, so we don't keep them in _all_data.
     history = []
     for f in filings[1:]:
         history.append({
@@ -3143,7 +3142,10 @@ def _load_investor_from_db(investor):
     # Enrich latest holdings with price performance (top 50)
     if _YF_AVAILABLE:
         portfolio_perf = enrich_performance(holdings, latest["filing_date"])
-        result["portfolioPerfSinceFiling"] = portfolio_perf
+        # Price enrichment is skipped during bulk load to stay under the 512MB
+        # memory limit. portfolioPerfSinceFiling stays None; can be computed
+        # lazily per-investor later if needed.
+        result["portfolioPerfSinceFiling"] = None
 
     return result
 
